@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Veri dosyaları (Kaggle'dan indirilip yerel olarak eklenmeli, repoya taşınmamalı)
+BankChurners.csv
+BankChurners_Cleaned.csv
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/

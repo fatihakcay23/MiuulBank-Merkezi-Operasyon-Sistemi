@@ -1,45 +1,71 @@
+"""
+Veri Hazırlama Betiği
+----------------------
+BankChurners.csv (Kaggle "Credit Card Customer Churn Prediction" veri seti)
+üzerinde temel temizleme işlemlerini uygular ve app.py'nin SQL modülünün
+beklediği BankChurners_Cleaned.csv dosyasını üretir.
+
+Kullanım:
+    python data_prep.py
+    # veya farklı bir girdi dosyası için:
+    python data_prep.py --input /path/to/BankChurners.csv
+"""
+
+import argparse
+import os
+
 import pandas as pd
-import numpy as np
 
-# Veriyi yükle
-df = pd.read_csv(r"C:\Users\elifi\OneDrive\Masaüstü\financalMarketing\BankChurners.csv")
 
-# 1. Gereksiz (Çöp) Sütunların Temizlenmesi
-# Veri setinin sonunda "Naive_Bayes..." ile başlayan ve modelleme için gereksiz olan iki sütun var.
-cols_to_drop = [
-    'Naive_Bayes_Classifier_Attrition_Flag_Card_Category_Contacts_Count_12_mon_Dependent_count_Education_Level_Months_Inactive_12_mon_1',
-    'Naive_Bayes_Classifier_Attrition_Flag_Card_Category_Contacts_Count_12_mon_Dependent_count_Education_Level_Months_Inactive_12_mon_2'
-]
-df = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
+def clean_bank_churners(input_path: str, output_path: str) -> pd.DataFrame:
+    df = pd.read_csv(input_path)
 
-# 2. Sütun İsimlerinin Standartlaştırılması (SQL ve Python uyumu için)
-# Tüm sütun isimlerini küçük harfe çevirip varsa boşlukları temizleyelim.
-df.columns = df.columns.str.lower().str.replace(' ', '_')
+    # 1. Gereksiz (çöp) sütunların temizlenmesi
+    # Veri setinin sonunda Naive Bayes sınıflandırıcı çıktısı olan ve
+    # modelleme için gereksiz olan iki sütun bulunuyor.
+    cols_to_drop = [c for c in df.columns if "Naive_Bayes" in c]
+    df = df.drop(columns=cols_to_drop)
 
-# 3. Hedef Değişkenin (Target) Hazırlanması - Makine Öğrenmesi İçin
-# 'attrition_flag' sütunu string (Existing/Attrited). Bunu 0 ve 1'e çevirelim.
-# Attrited Customer (Terk Eden) = 1
-# Existing Customer (Mevcut) = 0
-df['churn_label'] = df['attrition_flag'].apply(lambda x: 1 if x == 'Attrited Customer' else 0)
+    # 2. Sütun isimlerinin standartlaştırılması (SQL ve Python uyumu için)
+    df.columns = df.columns.str.lower().str.replace(" ", "_")
 
-# 4. Veri Tiplerinin Kontrolü ve Dönüşümü
-# Gereksiz boşlukları string sütunlardan temizle
-cat_cols = df.select_dtypes(include=['object']).columns
-for col in cat_cols:
-    df[col] = df[col].str.strip()
+    # 3. Hedef değişkenin (target) hazırlanması
+    # attrition_flag: "Existing Customer" / "Attrited Customer" -> 0 / 1
+    df["churn_label"] = df["attrition_flag"].apply(
+        lambda x: 1 if x == "Attrited Customer" else 0
+    )
 
-# 5. Kontrol: Eksik Veri Var mı?
-null_counts = df.isnull().sum().sum()
+    # 4. Metin sütunlarındaki gereksiz boşlukların temizlenmesi
+    cat_cols = df.select_dtypes(include=["object"]).columns
+    for col in cat_cols:
+        df[col] = df[col].str.strip()
 
-# Temizlenmiş veriyi kaydet
-output_filename = 'BankChurners_Cleaned.csv'
-df.to_csv(output_filename, index=False)
+    null_counts = df.isnull().sum().sum()
 
-print(f"Veri temizlendi ve '{output_filename}' olarak kaydedildi.")
-print(f"Toplam Satır: {df.shape[0]}")
-print(f"Toplam Sütun: {df.shape[1]}")
-print(f"Toplam Eksik Değer (Null): {null_counts}")
-print("\nSütun İsimleri (Yeni Hali):")
-print(list(df.columns))
-print("\nİlk 5 Satır:")
-print(df.head())
+    df.to_csv(output_path, index=False)
+
+    print(f"Veri temizlendi ve '{output_path}' olarak kaydedildi.")
+    print(f"Toplam Satır: {df.shape[0]}")
+    print(f"Toplam Sütun: {df.shape[1]}")
+    print(f"Toplam Eksik Değer (Null): {null_counts}")
+    print("\nSütun İsimleri (Yeni Hali):")
+    print(list(df.columns))
+
+    return df
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="BankChurners.csv veri temizleme betiği")
+    parser.add_argument(
+        "--input",
+        default=os.environ.get("MIUUL_DATA_PATH", "BankChurners.csv"),
+        help="Ham BankChurners.csv dosyasının yolu (varsayılan: proje klasöründeki BankChurners.csv)",
+    )
+    parser.add_argument(
+        "--output",
+        default="BankChurners_Cleaned.csv",
+        help="Temizlenmiş çıktı dosyasının adı",
+    )
+    args = parser.parse_args()
+
+    clean_bank_churners(args.input, args.output)
